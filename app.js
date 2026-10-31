@@ -40,7 +40,7 @@ let rows=function(ids,pl){const list=ids.map(byId).filter(Boolean);if(!list.leng
 let render=function(){const m=$('#main');document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v==view));
  if(view=='home'){const h=new Date().getHours();m.innerHTML=`<h1>${h<12?'Good morning':h<18?'Good afternoon':'Good evening'}</h1>${cards([getPl('liked'),...PL])}<h3>Recently played</h3>${recent.length?rows(recent.slice(0,8),'recent'):'<p style="color:#b3b3b3">Play something to see it here.</p>'}`}
  else if(view=='search'){m.innerHTML=`<h1>Search</h1><input id="search" type="search" placeholder="What do you want to listen to?" value="${esc(window.q||'')}"><div id="res"></div>`;
-  const s=$('#search'),upd=()=>{window.q=s.value;const q=s.value.toLowerCase();$('#res').innerHTML=q?rows(all().filter(t=>(t.title+' '+t.artist).toLowerCase().includes(q)).map(t=>t.id),'search'):'<h3>Browse all</h3>'+cards(PL)};s.oninput=upd;upd()}
+  const s=$('#search'),upd=()=>{window.q=s.value.trim();const q=window.q.toLowerCase();$('#res').innerHTML=q?rows(all().filter(t=>(t.title+' '+t.artist).toLowerCase().includes(q)).map(t=>t.id),'search'):'<h3>Browse all</h3>'+cards(PL)};s.oninput=upd;upd()}
  else if(view=='library'){m.innerHTML=`<h1>Your Library</h1><button class="pill" id="add">＋ Add songs</button>${cards([getPl('liked'),getPl('uploads'),getPl('recent'),...PL])}`;$('#add').onclick=()=>$('#file').click()}
  else{const p=getPl(curPl);m.innerHTML=`<div class="hero">${cover(p.hue,p.icon||esc(p.name))}<div><small>Playlist</small><h1>${esc(p.name)}</h1><small style="color:#b3b3b3">${esc(p.desc)} • ${p.ids.length} songs</small></div></div><button class="big-play" id="plplay">▶</button>${p.id=='uploads'?'<button class="pill" id="add">＋ Add songs</button>':''}${rows(p.ids,p.id)}`;
   $('#plplay').onclick=()=>p.ids.length&&playFrom(p.id,p.ids[shuffle?Math.random()*p.ids.length|0:0]);if($('#add'))$('#add').onclick=()=>$('#file').click()}}
@@ -97,13 +97,13 @@ const _byId=byId;byId=id=>itunes[id]||_byId(id);
 const _cover=cover;
 const links=t=>{const q=encodeURIComponent(t.title+' '+t.artist);return`<a class="lk" target="_blank" rel="noopener" href="https://open.spotify.com/search/${q}">Open in Spotify</a><a class="lk" target="_blank" rel="noopener" href="https://music.youtube.com/search?q=${q}">Open in YouTube Music</a>`};
 let srchTimer;
-async function catalog(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if(window.q!==q||!$('#cat'))return;
+async function catalog(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if((window.q||'').trim()!==q||!$('#cat'))return;
  window.catIds=res.map(t=>t.id);
  box.innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+
  (res.length?`<h3>Song previews (30s, via Apple Music)</h3>`+rows(window.catIds,'cat'):'<p style="color:#b3b3b3">No catalog matches.</p>')}
 // hook into search view
 const _render=render;render=function(){_render();if(view=='search'){const s=$('#search');$('#res').insertAdjacentHTML('afterend','<div id="cat"></div>');
- const go=()=>{clearTimeout(srchTimer);const q=s.value.trim();if(q.length>1)srchTimer=setTimeout(()=>catalog(q),400);else $('#cat').innerHTML=''};s.addEventListener('input',go);go()}};
+ const go=()=>{clearTimeout(srchTimer);const q=s.value.trim();if(q.length>1)srchTimer=setTimeout(()=>catalog(q),400);else $('#cat').innerHTML=''};s.addEventListener('input',go);s.addEventListener('search',go);s.addEventListener('keyup',go);s.addEventListener('change',go);go()}};
 const _getPl=getPl;getPl=id=>id=='cat'?{ids:window.catIds||[]}:_getPl(id);
 document.addEventListener('click',e=>{const d=e.target.closest('[data-dym]');if(d){e.stopPropagation();playFrom('cat',d.dataset.dym)}},true);
 // show art + links for external tracks
