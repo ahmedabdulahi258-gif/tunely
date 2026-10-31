@@ -9,7 +9,7 @@ const PL=[{id:'chill',name:'Chill Vibes',desc:'Laid-back loops',hue:200,ids:['t0
 {id:'all',name:'Tunely Mix',desc:'Every Tunely original',hue:280,ids:T.map(t=>t.id)}];
 const ls=(k,d)=>{try{return JSON.parse(localStorage[k])??d}catch(e){return d}},save=(k,v)=>localStorage[k]=JSON.stringify(v);
 let liked=ls('liked',[]),recent=ls('recent',[]),uploads=[],queue=[],qi=-1,shuffle=ls('shuf',false),repeat=ls('rep',0),view='home',curPl=null;
-const all=()=>[...T,...uploads],byId=id=>all().find(t=>t.id==id);
+const all=()=>[...T,...uploads];let byId=id=>all().find(t=>t.id==id);
 const cover=(h,txt='')=>`<div class="cv" style="background:linear-gradient(135deg,hsl(${h},70%,50%),hsl(${(h+60)%360},60%,25%))">${txt}</div>`;
 const fmt=s=>isFinite(s)?Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'):'0:00';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
@@ -31,13 +31,13 @@ $('#file').onchange=async e=>{await idb;for(const f of e.target.files){const m=a
  e.target.value='';await loadUploads();openPl('uploads')};
 async function delUp(id){await new Promise(r=>{const q=store('readwrite').delete(id);q.onsuccess=q.onerror=r});
  liked=liked.filter(x=>x!=id);recent=recent.filter(x=>x!=id);save('liked',liked);save('recent',recent);await loadUploads();render()}
-function getPl(id){if(id=='liked')return{id,name:'Liked Songs',desc:'Your hearted tracks',hue:250,ids:liked,icon:'♥'};
+let getPl=function(id){if(id=='liked')return{id,name:'Liked Songs',desc:'Your hearted tracks',hue:250,ids:liked,icon:'♥'};
  if(id=='uploads')return{id,name:'My Uploads',desc:'Songs from your device',hue:100,ids:uploads.map(u=>u.id),icon:'⇪'};
  if(id=='recent')return{id,name:'Recently Played',desc:'Your last 30 plays',hue:30,ids:recent,icon:'⟲'};return PL.find(p=>p.id==id)}
 const cards=ps=>`<div class="grid">${ps.map(p=>`<div class="card" data-pl="${p.id}">${cover(p.hue,p.icon||esc(p.name))}<b>${esc(p.name)}</b><small>${esc(p.desc)}</small></div>`).join('')}</div>`;
-function rows(ids,pl){const list=ids.map(byId).filter(Boolean);if(!list.length)return'<p style="color:#b3b3b3">Nothing here yet.</p>';
- return list.map((t,i)=>`<div class="tr ${queue[qi]==t.id?'cur':''}" data-t="${t.id}" data-pl="${pl}"><span class="n">${i+1}</span>${cover(t.hue,'♪')}<div><span class="t">${esc(t.title)}</span><small>${esc(t.artist)}</small></div><button class="ic h ${liked.includes(t.id)?'liked':''}" data-h="${t.id}">${liked.includes(t.id)?'♥':'♡'}</button>${t.up?`<button class="del" data-del="${t.id}">✕</button>`:'<span class="d"></span>'}</div>`).join('')}
-function render(){const m=$('#main');document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v==view));
+let rows=function(ids,pl){const list=ids.map(byId).filter(Boolean);if(!list.length)return'<p style="color:#b3b3b3">Nothing here yet.</p>';
+ return list.map((t,i)=>`<div class="tr ${queue[qi]==t.id?'cur':''}" data-t="${t.id}" data-pl="${pl}"><span class="n">${i+1}</span>${cover(t.hue,'♪')}<div><span class="t">${esc(t.title)}</span><small>${esc(t.artist)}</small></div><button class="ic h ${liked.includes(t.id)?'liked':''}" data-h="${t.id}">${liked.includes(t.id)?'♥':'♡'}</button>${t.up?`<button class="del" data-del="${t.id}">✕</button>`:t.ext?`<button class="del" data-menu="${t.id}">⋯</button>`:'<span class="d"></span>'}</div>`).join('')}
+let render=function(){const m=$('#main');document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v==view));
  if(view=='home'){const h=new Date().getHours();m.innerHTML=`<h1>${h<12?'Good morning':h<18?'Good afternoon':'Good evening'}</h1>${cards([getPl('liked'),...PL])}<h3>Recently played</h3>${recent.length?rows(recent.slice(0,8),'recent'):'<p style="color:#b3b3b3">Play something to see it here.</p>'}`}
  else if(view=='search'){m.innerHTML=`<h1>Search</h1><input id="search" type="search" placeholder="What do you want to listen to?" value="${esc(window.q||'')}"><div id="res"></div>`;
   const s=$('#search'),upd=()=>{window.q=s.value;const q=s.value.toLowerCase();$('#res').innerHTML=q?rows(all().filter(t=>(t.title+' '+t.artist).toLowerCase().includes(q)).map(t=>t.id),'search'):'<h3>Browse all</h3>'+cards(PL)};s.oninput=upd;upd()}
@@ -51,7 +51,7 @@ function playFrom(pl,id){srcIds=pl=='search'?[...document.querySelectorAll('#res
 function load(go){const t=byId(queue[qi]);if(!t)return;au.src=t.src;if(go)au.play().catch(()=>{});
  recent=[t.id,...recent.filter(x=>x!=t.id)].slice(0,30);save('recent',recent);ui();if(view!='pl'||curPl!='recent')render();
  if('mediaSession'in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,album:'Tunely',artwork:[{src:'logo.svg',sizes:'512x512',type:'image/svg+xml'}]})}}
-function ui(){const t=byId(queue[qi]);const L=t&&liked.includes(t.id);
+let ui=function(){const t=byId(queue[qi]);const L=t&&liked.includes(t.id);
  if(t){$('#npT').textContent=$('#fT').textContent=t.title;$('#npA').textContent=$('#fA').textContent=t.artist;
   $('#npCover').outerHTML=cover(t.hue,'♪').replace('class="cv"','class="cv" id="npCover"');$('#fCover').outerHTML=cover(t.hue,esc(t.title)).replace('class="cv"','class="cv big" id="fCover"');$('#full').style.setProperty('--c',`hsl(${t.hue},50%,35%)`)}
  ['#like','#flike'].forEach(s=>{$(s).textContent=L?'♥':'♡';$(s).classList.toggle('liked',!!L)});
@@ -78,3 +78,38 @@ document.addEventListener('click',e=>{const d=e.target.closest('[data-del]');if(
 if('mediaSession'in navigator){const ms=navigator.mediaSession;ms.setActionHandler('play',()=>au.play());ms.setActionHandler('pause',()=>au.pause());ms.setActionHandler('nexttrack',()=>next());ms.setActionHandler('previoustrack',prev);
  try{ms.setActionHandler('seekto',d=>au.currentTime=d.seekTime)}catch(e){}}
 au.volume=.8;loadUploads().then(()=>{render();ui()});render();ui();
+// ---- iTunes catalog search (30s previews, public API, no key) with fuzzy fallbacks ----
+const itunes={};const lev=(a,b)=>{const d=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]!=b[j-1]));p=t}}return d[b.length]};
+const tri=s=>{s='  '+s+' ';const r=new Set;for(let i=0;i<s.length-2;i++)r.add(s.slice(i,i+3));return r};
+const norm=s=>s.toLowerCase().replace(/\(.*?\)|\[.*?\]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+function sim(q,t){q=norm(q);const s=norm(t.title+' '+t.artist),A=tri(q),B=tri(s);let n=0;A.forEach(x=>B.has(x)&&n++);
+ const words=q.split(' ').filter(Boolean),hit=words.filter(w=>s.split(' ').some(x=>x.startsWith(w)||lev(w,x)<=Math.max(1,w.length/4|0))).length/(words.length||1);
+ return .5*n/(A.size||1)+.5*hit}
+const fixes=[[/ph/g,'f'],[/ie/g,'ei'],[/ei/g,'ie'],[/(.)\1/g,'$1'],[/z/g,'s'],[/k/g,'c'],[/y$/g,'ie'],[/ou/g,'o']];
+async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));
+ const j=await r.json();return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){return[]}}
+async function smart(q){const n=norm(q);if(!n)return{res:[]};let pool=await it(n);const w=n.split(' ');
+ const tries=[];if(pool.length<5){for(let i=0;i<w.length&&w.length>1;i++)tries.push(w.filter((_,k)=>k!=i).join(' '));fixes.forEach(([a,b])=>{const v=n.replace(a,b);if(v!=n)tries.push(v)});w.filter(x=>x.length>2).forEach(x=>tries.push(x))}
+ for(const t of tries.slice(0,10)){if(pool.length>=15)break;pool=[...pool,...await it(t)]}
+ const seen=new Set,res=pool.filter(t=>!seen.has(t.id)&&seen.add(t.id)).map(t=>({t,s:sim(q,t)})).sort((a,b)=>b.s-a.s);
+ return{res:res.map(r=>r.t),unsure:res.length&&res[0].s<.6,top:res.slice(0,5).map(r=>r.t)}}
+const _byId=byId;byId=id=>itunes[id]||_byId(id);
+const _cover=cover;
+const links=t=>{const q=encodeURIComponent(t.title+' '+t.artist);return`<a class="lk" target="_blank" rel="noopener" href="https://open.spotify.com/search/${q}">Open in Spotify</a><a class="lk" target="_blank" rel="noopener" href="https://music.youtube.com/search?q=${q}">Open in YouTube Music</a>`};
+let srchTimer;
+async function catalog(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if(window.q!==q||!$('#cat'))return;
+ window.catIds=res.map(t=>t.id);
+ box.innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+
+ (res.length?`<h3>Song previews (30s, via Apple Music)</h3>`+rows(window.catIds,'cat'):'<p style="color:#b3b3b3">No catalog matches.</p>')}
+// hook into search view
+const _render=render;render=function(){_render();if(view=='search'){const s=$('#search');$('#res').insertAdjacentHTML('afterend','<div id="cat"></div>');
+ const go=()=>{clearTimeout(srchTimer);const q=s.value.trim();if(q.length>1)srchTimer=setTimeout(()=>catalog(q),400);else $('#cat').innerHTML=''};s.addEventListener('input',go);go()}};
+const _getPl=getPl;getPl=id=>id=='cat'?{ids:window.catIds||[]}:_getPl(id);
+document.addEventListener('click',e=>{const d=e.target.closest('[data-dym]');if(d){e.stopPropagation();playFrom('cat',d.dataset.dym)}},true);
+// show art + links for external tracks
+const _ui=ui;ui=function(){_ui();const t=byId(queue[qi]);let l=$('#flinks');if(!l){$('.frow').insertAdjacentHTML('afterend','<div id="flinks"></div>');l=$('#flinks')}
+ l.innerHTML=t&&t.ext?links(t):'';if(t&&t.art){['#npCover','#fCover'].forEach(s=>{const c=$(s);c.textContent='';c.style.background=`center/cover url("${t.art}")`})}};
+const _rows=rows;rows=(ids,pl)=>{let h=_rows(ids,pl);ids.forEach(id=>{const t=byId(id);if(t&&t.ext){h=h.replace(`data-t="${id}" data-pl="${pl}">`,`data-t="${id}" data-pl="${pl}">`).replace(new RegExp(`(data-t="${id}"[^]*?<span class="d"></span>)`),`$1`)}});return h};
+// track menu for catalog rows: long-press-free ⋯ button
+document.addEventListener('click',e=>{const m=e.target.closest('[data-menu]');if(!m)return;e.stopPropagation();const t=byId(m.dataset.menu);
+ let p=$('#menu');if(!p){document.body.insertAdjacentHTML('beforeend','<div id="menu"></div>');p=$('#menu')}p.innerHTML=`<b>${esc(t.title)}</b><small>${esc(t.artist)}</small>${links(t)}<button class="pill" onclick="this.parentNode.remove()">Close</button>`},true);
