@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121212"><meta name="apple-mobile-web-app-capable" content="yes"><title>Tunely</title>
+<link rel="icon" href="logo.svg"><link rel="apple-touch-icon" href="logo.svg"><link rel="stylesheet" href="style.css"></head><body>
+<div id="app">
+<nav id="side"><div class="brand"><img src="logo.svg" alt="">Tunely</div>
+<a data-v="home" class="on">⌂ <span>Home</span></a><a data-v="search">⌕ <span>Search</span></a><a data-v="library">▤ <span>Your Library</span></a></nav>
+<main id="main"></main></div>
+<div id="bar"><div class="np" id="npInfo"><div class="cv" id="npCover"></div><div class="tx"><b id="npT">Pick a song</b><small id="npA">Tunely</small></div><button id="like" class="ic">♡</button></div>
+<div class="ctl"><div class="btns"><button id="shuf" class="ic sm">⤮</button><button id="prev" class="ic">⏮</button><button id="play" class="playb">▶</button><button id="next" class="ic">⏭</button><button id="rep" class="ic sm">↻</button></div>
+<div class="seek"><span id="cur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="dur">0:00</span></div></div>
+<div class="vol">🔊<input type="range" id="vol" min="0" max="1" step="0.01" value="0.8"></div>
+<div id="mprog"><i></i></div></div>
+<div id="full" hidden><button id="fclose" class="ic">⌄</button><div class="cv big" id="fCover"></div><div class="frow"><div><h2 id="fT"></h2><p id="fA"></p></div><button id="flike" class="ic">♡</button></div>
+<input type="range" id="fseek" min="0" max="1000" value="0"><div class="ftime"><span id="fcur">0:00</span><span id="fdur">0:00</span></div>
+<div class="fbtns"><button id="fshuf" class="ic">⤮</button><button id="fprev" class="ic">⏮</button><button id="fplay" class="playb lg">▶</button><button id="fnext" class="ic">⏭</button><button id="frep" class="ic">↻</button></div></div>
+<audio id="au" playsinline preload="metadata"></audio>
+<input type="file" id="file" accept="audio/*" multiple hidden>
+<script src="app.js"></script></body></html>
