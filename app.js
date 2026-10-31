@@ -90,7 +90,14 @@ function sim(q,t){q=norm(q);const s=norm(t.title+' '+t.artist),A=tri(q),B=tri(s)
  const words=q.split(' ').filter(Boolean),hit=words.filter(w=>s.split(' ').some(x=>x.startsWith(w)||lev(w,x)<=Math.max(1,w.length/4|0))).length/(words.length||1);
  return .5*n/(A.size||1)+.5*hit}
 const fixes=[[/ph/g,'f'],[/ie/g,'ei'],[/ei/g,'ie'],[/(.)\1/g,'$1'],[/z/g,'s'],[/k/g,'c'],[/y$/g,'ie'],[/ou/g,'o']];
-async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));window.srcErr.it=0;return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName};itunes[t.id]=t;return t})}catch(e){window.srcErr.it=1;return[]}}
+async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&limit=50&term='+encodeURIComponent(term));window.srcErr.it=0;return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName,col:x.collectionName,aid:x.artistId,cart:x.collectionArtistName,ex:x.trackExplicitness,tc:x.trackCount};itunes[t.id]=t;return t})}catch(e){window.srcErr.it=1;return[]}}
+const BADRE=/remix|sped ?up|slowed|reverb|nightcore|\b8d\b|karaoke|instrumental|cover|tribute|lullaby|piano version|acapella|a cappella|\blive\b|\bedit\b|\bmix\b|version|kidz bop|in the style of|made famous|sessions|lullapop|rockabye|ambient/gi;
+function isBad(t,q){const ql=(q||'').toLowerCase(),txt=[t.title,t.col,t.artist].join(' ');const m=(txt.match(BADRE)||[]).map(x=>x.toLowerCase());
+ if(m.some(w=>!ql.includes(w.trim())))return true;if(t.cart&&t.cart!='Various Artists'&&t.cart!=t.artist&&/tribute|karaoke|hits|kids|cover|lullaby|piano/i.test(t.cart))return true;return false}
+function rankT(list,q){const good=[],bad=[],seen={};list.forEach(t=>{(isBad(t,q)?bad:good).push(t)});
+ const sc=t=>(t.cart=='Various Artists'?0:2)+(t.tc>3?2:/ - single$/i.test(t.col||'')?1:0)+(t.ex=='explicit'?1:0);
+ const out=[];good.forEach(t=>{const k=norm(t.title)+'|'+norm(t.artist);if(k in seen){const j=seen[k];if(sc(t)>sc(out[j]))out[j]=t}else{seen[k]=out.length;out.push(t)}});const fq={};list.forEach(t=>fq[t.artist]=(fq[t.artist]||0)+1);const byT={};out.forEach((t,i)=>(byT[norm(t.title)]=byT[norm(t.title)]||[]).push(i));
+ Object.values(byT).forEach(ix=>{if(ix.length<2)return;const ts=ix.map(i=>out[i]).sort((a,b)=>fq[b.artist]-fq[a.artist]);ix.forEach((i,k)=>out[i]=ts[k])});return{good:out,bad}}
 async function smart(q){const n=norm(q);if(!n)return{res:[]};let pool=await it(n);const w=n.split(' ');
  const tries=[];if(pool.length<5){for(let i=0;i<w.length&&w.length>1;i++)tries.push(w.filter((_,k)=>k!=i).join(' '));fixes.forEach(([a,b])=>{const v=n.replace(a,b);if(v!=n)tries.push(v)});w.filter(x=>x.length>2).forEach(x=>tries.push(x))}
  for(const t of tries.slice(0,10)){if(pool.length>=15)break;pool=[...pool,...await it(t)]}
@@ -119,7 +126,7 @@ document.addEventListener('click',e=>{const m=e.target.closest('[data-menu]');if
 // ---- artist search ----
 async function findArtists(q){try{return (await ij('https://itunes.apple.com/search?media=music&entity=musicArtist&limit=4&term='+encodeURIComponent(q))).results||[]}catch(e){return[]}}
 async function artistSongs(name,id){const k='a'+id;if(itunes[k])return itunes[k];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&attribute=artistTerm&limit=50&term='+encodeURIComponent(name));
- return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName};itunes[t.id]=t;return t})}catch(e){return[]}}
+ return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName,col:x.collectionName,aid:x.artistId,cart:x.collectionArtistName,ex:x.trackExplicitness,tc:x.trackCount};itunes[t.id]=t;return t})}catch(e){return[]}}
 const _catalog=catalog;catalog=async function(q){const p=_catalog(q);const a=await findArtists(q);await p;const box=$('#cat');if(!box||(window.q||'').trim()!==q||!a.length)return;
  box.insertAdjacentHTML('afterbegin',`<h3>Artists</h3><div class="dym">${a.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}</div>`)};
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-artist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;
@@ -130,7 +137,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-arti
 let audHost=null;const AH=async()=>{if(audHost)return audHost;try{const r=await fetch('https://api.audius.co');const j=await r.json();audHost=j.data[Math.random()*j.data.length|0]}catch(e){audHost='https://api.audius.co'}return audHost};
 const reg=t=>(itunes[t.id]=t);
 const audT=x=>reg({id:'a'+x.id,title:x.title,artist:x.user?.name||'Audius',src:`${audHost}/v1/tracks/${x.id}/stream?app_name=Tunely`,art:x.artwork?.['480x480'],hue:[...x.id].reduce((a,c)=>a+c.charCodeAt(0),0)%360,ext:1,full:1,g:x.genre});
-async function audius(q){const h=await AH();const r=await fetch(`${h}/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=Tunely`);if(!r.ok)throw new Error('http '+r.status);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).slice(0,12).map(audT)}
+async function audius(q){const h=await AH();const r=await fetch(`${h}/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=Tunely`);if(!r.ok)throw new Error('http '+r.status);const l=((await r.json()).data||[]).filter(x=>x.is_streamable!==false).slice(0,12).map(audT);const rr=rankT(l,q);return[...rr.good,...rr.bad]}
 async function audUsers(q){const h=await AH();const r=await fetch(`${h}/v1/users/search?query=${encodeURIComponent(q)}&app_name=Tunely`);return ((await r.json()).data||[]).slice(0,4)}
 async function audUserTracks(id){const h=await AH();const r=await fetch(`${h}/v1/users/${id}/tracks?app_name=Tunely&limit=50`);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).map(audT)}
 async function archive(q){const r=await fetch('https://archive.org/advancedsearch.php?q='+encodeURIComponent(`(${q}) AND mediatype:audio`)+'&fl[]=identifier&fl[]=title&fl[]=creator&rows=10&output=json');const docs=(await r.json()).response.docs;
@@ -144,8 +151,10 @@ catalog=async function(q){const box=$('#cat');if(!box)return;const stale=()=>(wi
  const sec=(sel,pl,list,empty)=>{if(stale())return;const el=$(sel);if(!el)return;window.secIds[pl]=list.map(t=>t.id);el.innerHTML=list.length?rows(window.secIds[pl],pl):msg(empty)};
  audius(q).then(l=>sec('#sAud','aud',l,'No full songs on Audius.')).catch(()=>{if(!stale())$('#sAud').innerHTML=errm('Audius')});
  archive(q).then(l=>sec('#sIa','ia',l,'No full songs on Internet Archive.')).catch(()=>{if(!stale())$('#sIa').innerHTML=errm('Internet Archive')});
- (async()=>{try{const {res,unsure,top}=await smart(q);if(stale())return;window.catIds=res.map(t=>t.id);
-  $('#sIt').innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+'<h3>Song previews (30s, via Apple Music)</h3>'+(res.length?rows(window.catIds,'cat'):window.srcErr.it?errm('Apple Music'):msg('No preview matches.'))}catch(e){if(!stale())$('#sIt').innerHTML=errm('Apple Music')}})();
+ (async()=>{try{const [{res,unsure,top},arts]=await Promise.all([smart(q),findArtists(q).catch(()=>[])]);const q1=norm(q),A=arts.find(a=>{const a1=norm(a.artistName);return a1==q1||lev(a1,q1)<=Math.max(1,q1.length/5|0)});
+  let lead=[];if(A){try{lead=(await artistSongs(A.artistName,A.artistId)).filter(t=>t.aid==A.artistId)}catch(e){}}if(stale())return;
+  const rk=rankT([...lead,...res],q);window.catIds=rk.good.map(t=>t.id);window.secIds.oth=rk.bad.map(t=>t.id);
+  $('#sIt').innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+'<h3>Song previews (30s, via Apple Music)</h3>'+(rk.good.length||rk.bad.length?rows(window.catIds,'cat')+(rk.bad.length?`<button class="pill alt" data-oth="1">Show other versions (${rk.bad.length})</button><div id="othv" hidden>${rows(window.secIds.oth,'oth')}</div>`:''):window.srcErr.it?errm('Apple Music'):msg('No preview matches.'))}catch(e){if(!stale())$('#sIt').innerHTML=errm('Apple Music')}})();
  const [ia,au]=await Promise.all([findArtists(q).catch(()=>[]),audUsers(q).catch(()=>[])]);if(stale()||!(ia.length||au.length))return;
  $('#sArt').innerHTML=`<h3>Artists</h3><div class="dym">${ia.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}${au.map(x=>`<button class="pill alt" data-aartist="${x.id}" data-an="${esc(x.name)}">🎧 ${esc(x.name)} <b class="bdg full">FULL</b></button>`).join('')}</div>`};
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-aartist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;box.innerHTML=msg('Loading songs…');
@@ -176,7 +185,7 @@ async function djFill(n=15){djBusy=true;try{
   ...arts.map(async(a,i)=>{try{top.push(...shufA((await artistSongs(a,0)).filter(t=>t.artist.toLowerCase().includes(a.toLowerCase().split(/[,&]/)[0].trim()))).slice(0,[5,3,2][i]))}catch(e){}}),
   ...gen.map(async g=>{try{const r=(await it(norm(g))).filter(t=>!arts.includes(t.artist));const by={};r.forEach(t=>(by[t.artist]=by[t.artist]||[]).push(t));sim.push(...Object.values(by).map(x=>x[0]))}catch(e){}}),
   (async()=>{try{const h=await AH(),g=AG[gen[0]]||gen[0]||'';const r=await fetch(`${h}/v1/tracks/trending?app_name=Tunely${g?'&genre='+encodeURIComponent(g):''}`);disc.push(...shufA(((await r.json()).data||[]).filter(x=>x.is_streamable!==false).map(audT)).slice(0,3))}catch(e){}})()]);
- const a=shufA(top).filter(ok).slice(0,Math.round(n*.6)),b=shufA(sim).filter(ok).slice(0,Math.round(n*.3)+(a.length<n*.6?n*.6-a.length|0:0)),c=disc.filter(ok).slice(0,Math.max(1,n-a.length-b.length>3?3:Math.round(n*.1)));
+ const nb=t=>!isBad(t,'');const a=shufA(top).filter(nb).filter(ok).slice(0,Math.round(n*.6)),b=shufA(sim).filter(nb).filter(ok).slice(0,Math.round(n*.3)+(a.length<n*.6?n*.6-a.length|0:0)),c=disc.filter(nb).filter(ok).slice(0,Math.max(1,n-a.length-b.length>3?3:Math.round(n*.1)));
  const out=[];while(a.length||b.length||c.length){out.push(...a.splice(0,2),...b.splice(0,1));if(out.length%6==0||!a.length)out.push(...c.splice(0,1))}
  return out.map(t=>t.id)}finally{djBusy=false}}
 async function startDJ(){const has=Object.keys(prof.a).length||liked.length;if(!has&&!Object.keys(prof.g).length){view='home';render();djSay('Pick a vibe below to get started');return}
@@ -191,3 +200,5 @@ const _u3=ui;ui=function(){_u3();if(!$('#fdj')){const f=$('.frow');f&&f.insertAd
 document.addEventListener('click',e=>{const g=e.target.closest('[data-djg]');if(g){e.stopPropagation();prof.g[g.dataset.djg]=(prof.g[g.dataset.djg]||0)+3;save('djProf',prof);startDJ();return}
  if(e.target.closest('[data-dj]')||e.target.closest('#fdj')){e.stopPropagation();if(djOn&&e.target.closest('#fdj')){djOn=false;djUI();djSay('DJ off');return}if(djOn&&!au.paused){au.pause();return}if(djOn){au.play();return}startDJ()}},true);
 setTimeout(()=>{try{render()}catch(e){}},0);
+
+document.addEventListener('click',e=>{const b=e.target.closest('[data-oth]');if(!b)return;e.stopPropagation();const v=$('#othv');if(v){v.hidden=!v.hidden;b.textContent=(v.hidden?'Show':'Hide')+' other versions ('+(window.secIds.oth||[]).length+')'}},true);
