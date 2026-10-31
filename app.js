@@ -105,7 +105,7 @@ async function smart(q){const n=norm(q);if(!n)return{res:[]};let pool=await it(n
  return{res:res.map(r=>r.t),unsure:res.length&&res[0].s<.6,top:res.slice(0,5).map(r=>r.t)}}
 const _byId=byId;byId=id=>itunes[id]||_byId(id);
 const _cover=cover;
-const links=t=>{const q=encodeURIComponent(t.title+' '+t.artist);return`<a class="lk" target="_blank" rel="noopener" href="https://open.spotify.com/search/${q}">Open in Spotify</a><a class="lk" target="_blank" rel="noopener" href="https://music.youtube.com/search?q=${q}">Open in YouTube Music</a>`};
+const links=t=>{const q=encodeURIComponent(t.title+' '+t.artist);return`<a class="lk" target="_blank" rel="noopener" href="https://open.spotify.com/search/${q}">Open in Spotify</a><a class="lk" target="_blank" rel="noopener" href="https://music.youtube.com/search?q=${q}">Open in YouTube Music</a>`+(t.lic?`<a class="lk" target="_blank" rel="noopener" href="${esc(t.lic.u||'#')}" title="Attribution">♫ ${esc(t.lic.by||'')} · ${esc(t.lic.l)}</a>`:'')};
 let srchTimer;
 let catalog=async function(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if((window.q||'').trim()!==q||!$('#cat'))return;
  window.catIds=res.map(t=>t.id);
@@ -144,13 +144,16 @@ async function archive(q){const r=await fetch('https://archive.org/advancedsearc
  const out=await Promise.all(docs.map(async d=>{try{const m=await (await fetch('https://archive.org/metadata/'+d.identifier)).json();const f=(m.files||[]).find(f=>/\.mp3$/i.test(f.name));if(!f)return null;
   return reg({id:'ia_'+d.identifier,title:f.title||d.title||d.identifier,artist:[].concat(d.creator||f.artist||'Internet Archive')[0],src:`https://archive.org/download/${d.identifier}/${f.name.split('/').map(encodeURIComponent).join('/')}`,art:`https://archive.org/services/img/${d.identifier}`,hue:d.identifier.length*37%360,ext:1,full:1})}catch(e){return null}}));
  return out.filter(Boolean).slice(0,6)}
+const ovT=x=>{const f=[{url:x.url,b:x.bit_rate||0},...(x.alt_files||[]).map(a=>({url:a.url,b:a.bit_rate||0}))].filter(a=>a.url).sort((a,b)=>b.b-a.b)[0];return f&&reg({id:'ov_'+x.id,title:x.title||'Untitled',artist:x.creator||'Openverse',src:f.url,art:x.thumbnail,hue:[...x.id].reduce((a,c)=>a+c.charCodeAt(0),0)%360,ext:1,full:1,lic:{by:x.creator,l:('CC '+(x.license||'').toUpperCase()+' '+(x.license_version||'')).trim(),u:x.foreign_landing_url}})};
+async function openverse(q){try{const r=await fetch('https://api.openverse.org/v1/audio/?category=music&page_size=20&q='+encodeURIComponent(q));if(!r.ok)throw new Error('http '+r.status);const l=((await r.json()).results||[]).filter(x=>x.url&&(!x.duration||x.duration>=60000)).map(ovT).filter(Boolean);window.srcErr.ov=0;const rr=rankT(l,q);return[...rr.good,...rr.bad].slice(0,12)}catch(e){window.srcErr.ov=1;throw e}}
 const msg=t=>`<p style="color:#b3b3b3">${t}</p>`,errm=n=>`<p style="color:#f77">⚠ Couldn't reach ${n} — check your connection and try again.</p>`;
 window.secIds={};const _gp2=getPl;getPl=id=>window.secIds[id]?{ids:window.secIds[id]}:_gp2(id);
 catalog=async function(q){const box=$('#cat');if(!box)return;const stale=()=>(window.q||'').trim()!==q||!$('#cat');
- box.innerHTML='<div id="sArt"></div><h3>Full songs (Audius)</h3><div id="sAud">'+msg('Searching…')+'</div><h3>Full songs (Internet Archive)</h3><div id="sIa">'+msg('Searching…')+'</div><div id="sIt">'+msg('Searching previews…')+'</div>';
+ box.innerHTML='<div id="sArt"></div><h3>Full songs (Audius)</h3><div id="sAud">'+msg('Searching…')+'</div><h3>Full songs (Internet Archive)</h3><div id="sIa">'+msg('Searching…')+'</div><h3>Full songs (Openverse, CC-licensed)</h3><div id="sOv">'+msg('Searching…')+'</div><div id="sIt">'+msg('Searching previews…')+'</div>';
  const sec=(sel,pl,list,empty)=>{if(stale())return;const el=$(sel);if(!el)return;window.secIds[pl]=list.map(t=>t.id);el.innerHTML=list.length?rows(window.secIds[pl],pl):msg(empty)};
  audius(q).then(l=>sec('#sAud','aud',l,'No full songs on Audius.')).catch(()=>{if(!stale())$('#sAud').innerHTML=errm('Audius')});
  archive(q).then(l=>sec('#sIa','ia',l,'No full songs on Internet Archive.')).catch(()=>{if(!stale())$('#sIa').innerHTML=errm('Internet Archive')});
+ openverse(q).then(l=>sec('#sOv','ov',l.filter(t=>!(window.secIds.aud||[]).concat(window.secIds.ia||[]).some(i=>{const o=byId(i);return o&&norm(o.title)==norm(t.title)&&norm(o.artist)==norm(t.artist)})),'No full songs on Openverse.')).catch(()=>{if(!stale())$('#sOv').innerHTML=errm('Openverse')});
  (async()=>{try{const [{res,unsure,top},arts]=await Promise.all([smart(q),findArtists(q).catch(()=>[])]);const q1=norm(q),A=arts.find(a=>{const a1=norm(a.artistName);return a1==q1||lev(a1,q1)<=Math.max(1,q1.length/5|0)});
   let lead=[];if(A){try{lead=(await artistSongs(A.artistName,A.artistId)).filter(t=>t.aid==A.artistId)}catch(e){}}if(stale())return;
   const rk=rankT([...lead,...res],q);window.catIds=rk.good.map(t=>t.id);window.secIds.oth=rk.bad.map(t=>t.id);
