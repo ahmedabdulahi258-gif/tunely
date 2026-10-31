@@ -97,7 +97,7 @@ const _byId=byId;byId=id=>itunes[id]||_byId(id);
 const _cover=cover;
 const links=t=>{const q=encodeURIComponent(t.title+' '+t.artist);return`<a class="lk" target="_blank" rel="noopener" href="https://open.spotify.com/search/${q}">Open in Spotify</a><a class="lk" target="_blank" rel="noopener" href="https://music.youtube.com/search?q=${q}">Open in YouTube Music</a>`};
 let srchTimer;
-async function catalog(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if((window.q||'').trim()!==q||!$('#cat'))return;
+let catalog=async function(q){const box=$('#cat');if(!box)return;box.innerHTML='<p style="color:#b3b3b3">Searching catalog…</p>';const {res,unsure,top}=await smart(q);if((window.q||'').trim()!==q||!$('#cat'))return;
  window.catIds=res.map(t=>t.id);
  box.innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+
  (res.length?`<h3>Song previews (30s, via Apple Music)</h3>`+rows(window.catIds,'cat'):'<p style="color:#b3b3b3">No catalog matches.</p>')}
@@ -113,3 +113,12 @@ const _rows=rows;rows=(ids,pl)=>{let h=_rows(ids,pl);ids.forEach(id=>{const t=by
 // track menu for catalog rows: long-press-free ⋯ button
 document.addEventListener('click',e=>{const m=e.target.closest('[data-menu]');if(!m)return;e.stopPropagation();const t=byId(m.dataset.menu);
  let p=$('#menu');if(!p){document.body.insertAdjacentHTML('beforeend','<div id="menu"></div>');p=$('#menu')}p.innerHTML=`<b>${esc(t.title)}</b><small>${esc(t.artist)}</small>${links(t)}<button class="pill" onclick="this.parentNode.remove()">Close</button>`},true);
+// ---- artist search ----
+async function findArtists(q){try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=musicArtist&limit=4&term='+encodeURIComponent(q));return (await r.json()).results||[]}catch(e){return[]}}
+async function artistSongs(name,id){const k='a'+id;if(itunes[k])return itunes[k];try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&attribute=artistTerm&limit=50&term='+encodeURIComponent(name));const j=await r.json();
+ return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){return[]}}
+const _catalog=catalog;catalog=async function(q){const p=_catalog(q);const a=await findArtists(q);await p;const box=$('#cat');if(!box||(window.q||'').trim()!==q||!a.length)return;
+ box.insertAdjacentHTML('afterbegin',`<h3>Artists</h3><div class="dym">${a.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}</div>`)};
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-artist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;
+ box.innerHTML='<p style="color:#b3b3b3">Loading songs…</p>';const s=await artistSongs(b.dataset.an,b.dataset.artist);window.catIds=s.map(t=>t.id);
+ box.innerHTML=`<h3>${esc(b.dataset.an)} — songs</h3>`+(s.length?rows(window.catIds,'cat'):'<p style="color:#b3b3b3">No songs found.</p>')},true);
