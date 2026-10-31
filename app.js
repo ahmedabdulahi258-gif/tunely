@@ -36,7 +36,7 @@ let getPl=function(id){if(id=='liked')return{id,name:'Liked Songs',desc:'Your he
  if(id=='recent')return{id,name:'Recently Played',desc:'Your last 30 plays',hue:30,ids:recent,icon:'⟲'};return PL.find(p=>p.id==id)}
 const cards=ps=>`<div class="grid">${ps.map(p=>`<div class="card" data-pl="${p.id}">${cover(p.hue,p.icon||esc(p.name))}<b>${esc(p.name)}</b><small>${esc(p.desc)}</small></div>`).join('')}</div>`;
 let rows=function(ids,pl){const list=ids.map(byId).filter(Boolean);if(!list.length)return'<p style="color:#b3b3b3">Nothing here yet.</p>';
- return list.map((t,i)=>`<div class="tr ${queue[qi]==t.id?'cur':''}" data-t="${t.id}" data-pl="${pl}"><span class="n">${i+1}</span>${t.art?`<div class="cv" style="background:center/cover url('${t.art.replace('600x600','100x100')}')"></div>`:cover(t.hue,'♪')}<div><span class="t">${esc(t.title)}</span><small>${esc(t.artist)}</small></div><button class="ic h ${liked.includes(t.id)?'liked':''}" data-h="${t.id}">${liked.includes(t.id)?'♥':'♡'}</button>${t.up?`<button class="del" data-del="${t.id}">✕</button>`:t.ext?`<button class="del" data-menu="${t.id}">⋯</button>`:'<span class="d"></span>'}</div>`).join('')}
+ return list.map((t,i)=>`<div class="tr ${queue[qi]==t.id?'cur':''}" data-t="${t.id}" data-pl="${pl}"><span class="n">${i+1}</span>${t.art?`<div class="cv" style="background:center/cover url('${t.art.replace('600x600','100x100')}')"></div>`:cover(t.hue,'♪')}<div><span class="t">${esc(t.title)}${t.ext?`<b class="bdg${t.full?" full":""}">${t.full?"FULL":"30s"}</b>`:""}</span><small>${esc(t.artist)}</small></div><button class="ic h ${liked.includes(t.id)?'liked':''}" data-h="${t.id}">${liked.includes(t.id)?'♥':'♡'}</button>${t.up?`<button class="del" data-del="${t.id}">✕</button>`:t.ext?`<button class="del" data-menu="${t.id}">⋯</button>`:'<span class="d"></span>'}</div>`).join('')}
 let render=function(){const m=$('#main');document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v==view));
  if(view=='home'){const h=new Date().getHours();m.innerHTML=`<h1>${h<12?'Good morning':h<18?'Good afternoon':'Good evening'}</h1>${cards([getPl('liked'),...PL])}<h3>Recently played</h3>${recent.length?rows(recent.slice(0,8),'recent'):'<p style="color:#b3b3b3">Play something to see it here.</p>'}`}
  else if(view=='search'){m.innerHTML=`<h1>Search</h1><input id="search" type="search" placeholder="What do you want to listen to?" value="${esc(window.q||'')}"><div id="res"></div>`;
@@ -79,6 +79,10 @@ if('mediaSession'in navigator){const ms=navigator.mediaSession;ms.setActionHandl
  try{ms.setActionHandler('seekto',d=>au.currentTime=d.seekTime)}catch(e){}}
 au.volume=.8;loadUploads().then(()=>{render();ui()});render();ui();
 // ---- iTunes catalog search (30s previews, public API, no key) with fuzzy fallbacks ----
+let cbN=0;const jsonp=(u,ms=8000)=>new Promise((ok,no)=>{const n='cb'+(++cbN)+'_'+Date.now(),s=document.createElement('script');let done=0;const end=()=>{done=1;delete window[n];s.remove()};
+ const tm=setTimeout(()=>{if(!done){end();no(new Error('timeout'))}},ms);window[n]=j=>{clearTimeout(tm);end();ok(j)};s.onerror=()=>{clearTimeout(tm);end();no(new Error('jsonp'))};s.src=u+'&callback='+n;document.head.appendChild(s)});
+const ij=async u=>{try{return await jsonp(u)}catch(e){const r=await fetch(u);if(!r.ok)throw new Error('http '+r.status);return r.json()}};
+window.srcErr={};
 const itunes={};const lev=(a,b)=>{const d=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]!=b[j-1]));p=t}}return d[b.length]};
 const tri=s=>{s='  '+s+' ';const r=new Set;for(let i=0;i<s.length-2;i++)r.add(s.slice(i,i+3));return r};
 const norm=s=>s.toLowerCase().replace(/\(.*?\)|\[.*?\]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
@@ -86,8 +90,7 @@ function sim(q,t){q=norm(q);const s=norm(t.title+' '+t.artist),A=tri(q),B=tri(s)
  const words=q.split(' ').filter(Boolean),hit=words.filter(w=>s.split(' ').some(x=>x.startsWith(w)||lev(w,x)<=Math.max(1,w.length/4|0))).length/(words.length||1);
  return .5*n/(A.size||1)+.5*hit}
 const fixes=[[/ph/g,'f'],[/ie/g,'ei'],[/ei/g,'ie'],[/(.)\1/g,'$1'],[/z/g,'s'],[/k/g,'c'],[/y$/g,'ie'],[/ou/g,'o']];
-async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));
- const j=await r.json();return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){return[]}}
+async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));window.srcErr.it=0;return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){window.srcErr.it=1;return[]}}
 async function smart(q){const n=norm(q);if(!n)return{res:[]};let pool=await it(n);const w=n.split(' ');
  const tries=[];if(pool.length<5){for(let i=0;i<w.length&&w.length>1;i++)tries.push(w.filter((_,k)=>k!=i).join(' '));fixes.forEach(([a,b])=>{const v=n.replace(a,b);if(v!=n)tries.push(v)});w.filter(x=>x.length>2).forEach(x=>tries.push(x))}
  for(const t of tries.slice(0,10)){if(pool.length>=15)break;pool=[...pool,...await it(t)]}
@@ -114,11 +117,40 @@ const _rows=rows;rows=(ids,pl)=>{let h=_rows(ids,pl);ids.forEach(id=>{const t=by
 document.addEventListener('click',e=>{const m=e.target.closest('[data-menu]');if(!m)return;e.stopPropagation();const t=byId(m.dataset.menu);
  let p=$('#menu');if(!p){document.body.insertAdjacentHTML('beforeend','<div id="menu"></div>');p=$('#menu')}p.innerHTML=`<b>${esc(t.title)}</b><small>${esc(t.artist)}</small>${links(t)}<button class="pill" onclick="this.parentNode.remove()">Close</button>`},true);
 // ---- artist search ----
-async function findArtists(q){try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=musicArtist&limit=4&term='+encodeURIComponent(q));return (await r.json()).results||[]}catch(e){return[]}}
-async function artistSongs(name,id){const k='a'+id;if(itunes[k])return itunes[k];try{const r=await fetch('https://itunes.apple.com/search?media=music&entity=song&attribute=artistTerm&limit=50&term='+encodeURIComponent(name));const j=await r.json();
+async function findArtists(q){try{return (await ij('https://itunes.apple.com/search?media=music&entity=musicArtist&limit=4&term='+encodeURIComponent(q))).results||[]}catch(e){return[]}}
+async function artistSongs(name,id){const k='a'+id;if(itunes[k])return itunes[k];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&attribute=artistTerm&limit=50&term='+encodeURIComponent(name));
  return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){return[]}}
 const _catalog=catalog;catalog=async function(q){const p=_catalog(q);const a=await findArtists(q);await p;const box=$('#cat');if(!box||(window.q||'').trim()!==q||!a.length)return;
  box.insertAdjacentHTML('afterbegin',`<h3>Artists</h3><div class="dym">${a.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}</div>`)};
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-artist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;
  box.innerHTML='<p style="color:#b3b3b3">Loading songs…</p>';const s=await artistSongs(b.dataset.an,b.dataset.artist);window.catIds=s.map(t=>t.id);
  box.innerHTML=`<h3>${esc(b.dataset.an)} — songs</h3>`+(s.length?rows(window.catIds,'cat'):'<p style="color:#b3b3b3">No songs found.</p>')},true);
+
+// ---- full-length free sources: Audius + Internet Archive; persistence of external tracks ----
+let audHost=null;const AH=async()=>{if(audHost)return audHost;try{const r=await fetch('https://api.audius.co');const j=await r.json();audHost=j.data[Math.random()*j.data.length|0]}catch(e){audHost='https://api.audius.co'}return audHost};
+const reg=t=>(itunes[t.id]=t);
+const audT=x=>reg({id:'a'+x.id,title:x.title,artist:x.user?.name||'Audius',src:`${audHost}/v1/tracks/${x.id}/stream?app_name=Tunely`,art:x.artwork?.['480x480'],hue:[...x.id].reduce((a,c)=>a+c.charCodeAt(0),0)%360,ext:1,full:1});
+async function audius(q){const h=await AH();const r=await fetch(`${h}/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=Tunely`);if(!r.ok)throw new Error('http '+r.status);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).slice(0,12).map(audT)}
+async function audUsers(q){const h=await AH();const r=await fetch(`${h}/v1/users/search?query=${encodeURIComponent(q)}&app_name=Tunely`);return ((await r.json()).data||[]).slice(0,4)}
+async function audUserTracks(id){const h=await AH();const r=await fetch(`${h}/v1/users/${id}/tracks?app_name=Tunely&limit=50`);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).map(audT)}
+async function archive(q){const r=await fetch('https://archive.org/advancedsearch.php?q='+encodeURIComponent(`(${q}) AND mediatype:audio`)+'&fl[]=identifier&fl[]=title&fl[]=creator&rows=10&output=json');const docs=(await r.json()).response.docs;
+ const out=await Promise.all(docs.map(async d=>{try{const m=await (await fetch('https://archive.org/metadata/'+d.identifier)).json();const f=(m.files||[]).find(f=>/\.mp3$/i.test(f.name));if(!f)return null;
+  return reg({id:'ia_'+d.identifier,title:f.title||d.title||d.identifier,artist:[].concat(d.creator||f.artist||'Internet Archive')[0],src:`https://archive.org/download/${d.identifier}/${f.name.split('/').map(encodeURIComponent).join('/')}`,art:`https://archive.org/services/img/${d.identifier}`,hue:d.identifier.length*37%360,ext:1,full:1})}catch(e){return null}}));
+ return out.filter(Boolean).slice(0,6)}
+const msg=t=>`<p style="color:#b3b3b3">${t}</p>`,errm=n=>`<p style="color:#f77">⚠ Couldn't reach ${n} — check your connection and try again.</p>`;
+window.secIds={};const _gp2=getPl;getPl=id=>window.secIds[id]?{ids:window.secIds[id]}:_gp2(id);
+catalog=async function(q){const box=$('#cat');if(!box)return;const stale=()=>(window.q||'').trim()!==q||!$('#cat');
+ box.innerHTML='<div id="sArt"></div><h3>Full songs (Audius)</h3><div id="sAud">'+msg('Searching…')+'</div><h3>Full songs (Internet Archive)</h3><div id="sIa">'+msg('Searching…')+'</div><div id="sIt">'+msg('Searching previews…')+'</div>';
+ const sec=(sel,pl,list,empty)=>{if(stale())return;const el=$(sel);if(!el)return;window.secIds[pl]=list.map(t=>t.id);el.innerHTML=list.length?rows(window.secIds[pl],pl):msg(empty)};
+ audius(q).then(l=>sec('#sAud','aud',l,'No full songs on Audius.')).catch(()=>{if(!stale())$('#sAud').innerHTML=errm('Audius')});
+ archive(q).then(l=>sec('#sIa','ia',l,'No full songs on Internet Archive.')).catch(()=>{if(!stale())$('#sIa').innerHTML=errm('Internet Archive')});
+ (async()=>{try{const {res,unsure,top}=await smart(q);if(stale())return;window.catIds=res.map(t=>t.id);
+  $('#sIt').innerHTML=(unsure&&top.length?`<h3>Did you mean…?</h3><div class="dym">${top.map(t=>`<button class="pill alt" data-dym="${t.id}">${esc(t.title)} — ${esc(t.artist)}</button>`).join('')}</div>`:'')+'<h3>Song previews (30s, via Apple Music)</h3>'+(res.length?rows(window.catIds,'cat'):window.srcErr.it?errm('Apple Music'):msg('No preview matches.'))}catch(e){if(!stale())$('#sIt').innerHTML=errm('Apple Music')}})();
+ const [ia,au]=await Promise.all([findArtists(q).catch(()=>[]),audUsers(q).catch(()=>[])]);if(stale()||!(ia.length||au.length))return;
+ $('#sArt').innerHTML=`<h3>Artists</h3><div class="dym">${ia.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}${au.map(x=>`<button class="pill alt" data-aartist="${x.id}" data-an="${esc(x.name)}">🎧 ${esc(x.name)} <b class="bdg full">FULL</b></button>`).join('')}</div>`};
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-aartist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;box.innerHTML=msg('Loading songs…');
+ try{const s=await audUserTracks(b.dataset.aartist);window.catIds=s.map(t=>t.id);box.innerHTML=`<h3>${esc(b.dataset.an)} — full songs (Audius)</h3>`+(s.length?rows(window.catIds,'cat'):msg('No songs found.'))}catch(_){box.innerHTML=errm('Audius')}},true);
+// persist external tracks referenced anywhere in localStorage (liked, recent, playlists)
+(()=>{try{ls('extTracks',[]).forEach(reg)}catch(e){}const keep=()=>{try{let blob='';for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k!='extTracks')blob+=localStorage.getItem(k)}
+ const cur=byId(queue[qi]);const L=Object.values(itunes).filter(t=>t&&t.id&&t.ext&&(blob.includes('"'+t.id+'"')||t===cur));save('extTracks',L)}catch(e){}};
+ setInterval(keep,3000);document.addEventListener('visibilitychange',keep);addEventListener('pagehide',keep);setTimeout(()=>{try{render()}catch(e){}},0)})();

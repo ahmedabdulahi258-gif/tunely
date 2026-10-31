@@ -48,3 +48,4 @@ input[type=range]{flex:1;accent-color:#1DB954;height:4px}
 .lk{display:inline-block;margin:6px 8px 0 0;padding:8px 14px;border:1px solid #fff5;border-radius:20px;color:#fff;text-decoration:none;font-size:13px}
 .pill.alt{background:#2a2a2a;color:#fff;font-weight:500}
 #menu{position:fixed;left:0;right:0;bottom:0;background:#282828;padding:20px 20px calc(20px + env(safe-area-inset-bottom));z-index:20;border-radius:14px 14px 0 0;display:flex;flex-direction:column;gap:6px}#menu small{color:#b3b3b3}
+.bdg{font-size:9px;font-weight:700;margin-left:6px;padding:1px 4px;border-radius:3px;background:#333;color:#aaa;vertical-align:middle;letter-spacing:.5px}.bdg.full{background:#1db95433;color:#1ed760}
