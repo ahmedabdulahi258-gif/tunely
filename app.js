@@ -90,7 +90,7 @@ function sim(q,t){q=norm(q);const s=norm(t.title+' '+t.artist),A=tri(q),B=tri(s)
  const words=q.split(' ').filter(Boolean),hit=words.filter(w=>s.split(' ').some(x=>x.startsWith(w)||lev(w,x)<=Math.max(1,w.length/4|0))).length/(words.length||1);
  return .5*n/(A.size||1)+.5*hit}
 const fixes=[[/ph/g,'f'],[/ie/g,'ei'],[/ei/g,'ie'],[/(.)\1/g,'$1'],[/z/g,'s'],[/k/g,'c'],[/y$/g,'ie'],[/ou/g,'o']];
-async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));window.srcErr.it=0;return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){window.srcErr.it=1;return[]}}
+async function it(term){if(itunes['q'+term])return itunes['q'+term];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&limit=25&term='+encodeURIComponent(term));window.srcErr.it=0;return itunes['q'+term]=j.results.filter(x=>x.previewUrl).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName};itunes[t.id]=t;return t})}catch(e){window.srcErr.it=1;return[]}}
 async function smart(q){const n=norm(q);if(!n)return{res:[]};let pool=await it(n);const w=n.split(' ');
  const tries=[];if(pool.length<5){for(let i=0;i<w.length&&w.length>1;i++)tries.push(w.filter((_,k)=>k!=i).join(' '));fixes.forEach(([a,b])=>{const v=n.replace(a,b);if(v!=n)tries.push(v)});w.filter(x=>x.length>2).forEach(x=>tries.push(x))}
  for(const t of tries.slice(0,10)){if(pool.length>=15)break;pool=[...pool,...await it(t)]}
@@ -119,7 +119,7 @@ document.addEventListener('click',e=>{const m=e.target.closest('[data-menu]');if
 // ---- artist search ----
 async function findArtists(q){try{return (await ij('https://itunes.apple.com/search?media=music&entity=musicArtist&limit=4&term='+encodeURIComponent(q))).results||[]}catch(e){return[]}}
 async function artistSongs(name,id){const k='a'+id;if(itunes[k])return itunes[k];try{const j=await ij('https://itunes.apple.com/search?media=music&entity=song&attribute=artistTerm&limit=50&term='+encodeURIComponent(name));
- return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1};itunes[t.id]=t;return t})}catch(e){return[]}}
+ return itunes[k]=j.results.filter(x=>x.previewUrl).sort((x,y)=>(y.artistId==id)-(x.artistId==id)).map(x=>{const t={id:'i'+x.trackId,title:x.trackName,artist:x.artistName,src:x.previewUrl,art:x.artworkUrl100?.replace('100x100','600x600'),hue:x.trackId%360,ext:1,g:x.primaryGenreName};itunes[t.id]=t;return t})}catch(e){return[]}}
 const _catalog=catalog;catalog=async function(q){const p=_catalog(q);const a=await findArtists(q);await p;const box=$('#cat');if(!box||(window.q||'').trim()!==q||!a.length)return;
  box.insertAdjacentHTML('afterbegin',`<h3>Artists</h3><div class="dym">${a.map(x=>`<button class="pill alt" data-artist="${x.artistId}" data-an="${esc(x.artistName)}">🎤 ${esc(x.artistName)}</button>`).join('')}</div>`)};
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-artist]');if(!b)return;e.stopPropagation();const box=$('#cat');if(!box)return;
@@ -129,7 +129,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-arti
 // ---- full-length free sources: Audius + Internet Archive; persistence of external tracks ----
 let audHost=null;const AH=async()=>{if(audHost)return audHost;try{const r=await fetch('https://api.audius.co');const j=await r.json();audHost=j.data[Math.random()*j.data.length|0]}catch(e){audHost='https://api.audius.co'}return audHost};
 const reg=t=>(itunes[t.id]=t);
-const audT=x=>reg({id:'a'+x.id,title:x.title,artist:x.user?.name||'Audius',src:`${audHost}/v1/tracks/${x.id}/stream?app_name=Tunely`,art:x.artwork?.['480x480'],hue:[...x.id].reduce((a,c)=>a+c.charCodeAt(0),0)%360,ext:1,full:1});
+const audT=x=>reg({id:'a'+x.id,title:x.title,artist:x.user?.name||'Audius',src:`${audHost}/v1/tracks/${x.id}/stream?app_name=Tunely`,art:x.artwork?.['480x480'],hue:[...x.id].reduce((a,c)=>a+c.charCodeAt(0),0)%360,ext:1,full:1,g:x.genre});
 async function audius(q){const h=await AH();const r=await fetch(`${h}/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=Tunely`);if(!r.ok)throw new Error('http '+r.status);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).slice(0,12).map(audT)}
 async function audUsers(q){const h=await AH();const r=await fetch(`${h}/v1/users/search?query=${encodeURIComponent(q)}&app_name=Tunely`);return ((await r.json()).data||[]).slice(0,4)}
 async function audUserTracks(id){const h=await AH();const r=await fetch(`${h}/v1/users/${id}/tracks?app_name=Tunely&limit=50`);return ((await r.json()).data||[]).filter(x=>x.is_streamable!==false).map(audT)}
@@ -154,3 +154,40 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-aart
 (()=>{try{ls('extTracks',[]).forEach(reg)}catch(e){}const keep=()=>{try{let blob='';for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k!='extTracks')blob+=localStorage.getItem(k)}
  const cur=byId(queue[qi]);const L=Object.values(itunes).filter(t=>t&&t.id&&t.ext&&(blob.includes('"'+t.id+'"')||t===cur));save('extTracks',L)}catch(e){}};
  setInterval(keep,3000);document.addEventListener('visibilitychange',keep);addEventListener('pagehide',keep);setTimeout(()=>{try{render()}catch(e){}},0)})();
+
+// ---- DJ: client-side taste profile + auto queue ----
+let prof=ls('djProf',{a:{},g:{}}),djOn=false,lastP={},djLastA='';
+const bump=(t,w)=>{if(!t)return;prof.a[t.artist]=(prof.a[t.artist]||0)+w;if(t.g)prof.g[t.g]=(prof.g[t.g]||0)+w;save('djProf',prof)};
+au.addEventListener('timeupdate',()=>{if(queue[qi])lastP={id:queue[qi],pos:au.currentTime,dur:au.duration}});
+au.addEventListener('ended',()=>{bump(byId(lastP.id),2);lastP={}});
+au.addEventListener('loadstart',()=>{const p=lastP;lastP={};if(p.id&&p.id!=queue[qi]){const t=byId(p.id);bump(t,p.pos<15?-1:p.pos>p.dur*.5?2:1)}
+ if(djOn){const t=byId(queue[qi]);if(t&&t.artist!=djLastA){djLastA=t.artist;const a=prof.a[t.artist]>0;djSay(a?`Up next: more ${t.artist} because you've been playing it`:`Up next: ${t.artist}${t.g?` — some ${t.g} you might like`:' — something new for you'}`)}
+  if(qi>=queue.length-3&&!djBusy)djFill().then(l=>{if(l.length)queue.push(...l)})}});
+const djSay=m=>{let b=$('#djb');if(!b){document.body.insertAdjacentHTML('beforeend','<div id="djb"></div>');b=$('#djb')}b.textContent='🎧 DJ: '+m;b.classList.add('on');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('on'),6000)};
+const topK=(o,k)=>Object.entries(o).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,k).map(x=>x[0]);
+const shufA=a=>a.sort(()=>Math.random()-.5);
+const AG={'Hip-Hop/Rap':'Hip-Hop/Rap','R&B/Soul':'R&B/Soul','R&B':'R&B/Soul','Pop':'Pop','Afrobeats':'Afrobeats','Afro-Pop':'Afrobeats','Latin':'Latin','Urbano latino':'Latin','Rock':'Rock','Alternative':'Alternative','Country':'Country','Electronic':'Electronic','Dance':'Dance & EDM'};
+let djBusy=false;
+async function djFill(n=15){djBusy=true;try{
+ const L={...prof.a,...{}};liked.forEach(id=>{const t=byId(id);if(t){L[t.artist]=(L[t.artist]||0)+5;}});const G={...prof.g};liked.forEach(id=>{const t=byId(id);if(t&&t.g)G[t.g]=(G[t.g]||0)+5});
+ const arts=topK(L,3),gen=topK(G,2),avoid=new Set([...recent.slice(0,30),...queue]),ok=t=>t&&!avoid.has(t.id)&&(avoid.add(t.id),1);
+ const top=[],sim=[],disc=[];
+ await Promise.all([
+  ...arts.map(async(a,i)=>{try{top.push(...shufA((await artistSongs(a,0)).filter(t=>t.artist.toLowerCase().includes(a.toLowerCase().split(/[,&]/)[0].trim()))).slice(0,[5,3,2][i]))}catch(e){}}),
+  ...gen.map(async g=>{try{const r=(await it(norm(g))).filter(t=>!arts.includes(t.artist));const by={};r.forEach(t=>(by[t.artist]=by[t.artist]||[]).push(t));sim.push(...Object.values(by).map(x=>x[0]))}catch(e){}}),
+  (async()=>{try{const h=await AH(),g=AG[gen[0]]||gen[0]||'';const r=await fetch(`${h}/v1/tracks/trending?app_name=Tunely${g?'&genre='+encodeURIComponent(g):''}`);disc.push(...shufA(((await r.json()).data||[]).filter(x=>x.is_streamable!==false).map(audT)).slice(0,3))}catch(e){}})()]);
+ const a=shufA(top).filter(ok).slice(0,Math.round(n*.6)),b=shufA(sim).filter(ok).slice(0,Math.round(n*.3)+(a.length<n*.6?n*.6-a.length|0:0)),c=disc.filter(ok).slice(0,Math.max(1,n-a.length-b.length>3?3:Math.round(n*.1)));
+ const out=[];while(a.length||b.length||c.length){out.push(...a.splice(0,2),...b.splice(0,1));if(out.length%6==0||!a.length)out.push(...c.splice(0,1))}
+ return out.map(t=>t.id)}finally{djBusy=false}}
+async function startDJ(){const has=Object.keys(prof.a).length||liked.length;if(!has&&!Object.keys(prof.g).length){view='home';render();djSay('Pick a vibe below to get started');return}
+ djSay('Warming up the decks…');const l=await djFill();if(!l.length){djSay("Couldn't load any songs — check your connection and try again.");const e=$('#djerr');e&&(e.textContent='⚠ DJ couldn\'t load songs right now. Try again.');return}
+ djOn=true;djLastA='';queue=l;qi=0;load(true);djUI()}
+const djUI=()=>{const b=$('#fdj');if(b){b.classList.toggle('on',djOn);b.textContent=djOn?'🎧 DJ on':'🎧 DJ'}};
+const GEN=['Hip-Hop/Rap','R&B/Soul','Pop','Afrobeats','Latin','Rock','Country'];
+const _pf=playFrom;playFrom=function(...a){djOn=false;djUI();return _pf(...a)};
+const _r3=render;render=function(){_r3();if(view=='home'){const h=$('#main h1');const cold=!Object.keys(prof.a).length&&!liked.length&&!Object.keys(prof.g).length;
+ h&&h.insertAdjacentHTML('afterend',`<div class="djcard" data-dj="1"><div><b>DJ</b><span>Made for you</span><small>${cold?'Pick a vibe to start':'Picks songs from what you play and like'}</small></div><i>${djOn?'❚❚':'▶'}</i></div>${cold?`<div class="dym">${GEN.map(g=>`<button class="pill alt" data-djg="${g}">${g}</button>`).join('')}</div>`:''}<p id="djerr" style="color:#f77"></p>`)}};
+const _u3=ui;ui=function(){_u3();if(!$('#fdj')){const f=$('.frow');f&&f.insertAdjacentHTML('afterend','<button id="fdj" class="pill alt">🎧 DJ</button>')}djUI()};
+document.addEventListener('click',e=>{const g=e.target.closest('[data-djg]');if(g){e.stopPropagation();prof.g[g.dataset.djg]=(prof.g[g.dataset.djg]||0)+3;save('djProf',prof);startDJ();return}
+ if(e.target.closest('[data-dj]')||e.target.closest('#fdj')){e.stopPropagation();if(djOn&&e.target.closest('#fdj')){djOn=false;djUI();djSay('DJ off');return}if(djOn&&!au.paused){au.pause();return}if(djOn){au.play();return}startDJ()}},true);
+setTimeout(()=>{try{render()}catch(e){}},0);
